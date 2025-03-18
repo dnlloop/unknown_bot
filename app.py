@@ -1,24 +1,27 @@
 import os
 import logging
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from dotenv import load_dotenv
-import requests
-import threading
+import telegram
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
 
-TOKEN = os.getenv("TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "562770229")) 
+TOKEN = os.getenv("TOKEN")  # توکن ربات تلگرام
+ADMIN_ID = int(os.getenv("ADMIN_ID", "562770229"))  # آیدی ادمین
 CHANNEL_ID = os.getenv("CHANNEL_ID")  # مثلا: @yourchannel
 CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "true"  # آیا قفل کانال فعال است؟
 
 # تنظیمات لاگ
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+bot = telegram.Bot(token=TOKEN)
 
 def check_channel_membership(update: Update, context: CallbackContext):
     """ بررسی می‌کنه که کاربر عضو کانال هست یا نه """
@@ -107,20 +110,27 @@ def create_image_callback(update: Update, context: CallbackContext):
     else:
         query.answer("❌ شما اجازه این کار را ندارید!")
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("👋 سلام! من یک ربات ناشناس هستم. پیام ناشناس خود را ارسال کنید.")
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    """ دریافت درخواست از تلگرام به عنوان webhook """
+    json_str = request.get_data().decode("UTF-8")
+    update = Update.de_json(json_str, bot)
+    dispatcher = Updater(TOKEN, use_context=True).dispatcher
+    dispatcher.process_update(update)
+    return "OK", 200
 
-def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+@app.route("/")
+def index():
+    return "Bot is running!"
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_anonymous_message))
-    dp.add_handler(CallbackQueryHandler(send_to_channel_callback, pattern="^send_to_channel_"))
-    dp.add_handler(CallbackQueryHandler(create_image_callback, pattern="^create_image_"))
-
-    updater.start_polling()
-    updater.idle()
+def set_webhook():
+    """ تنظیم webhook برای ربات """
+    webhook_url = f"https://unknown-bot-sllr.onrender.com/{TOKEN}"
+    bot.setWebhook(webhook_url)
 
 if __name__ == "__main__":
-    main()
+    # تنظیم webhook
+    set_webhook()
+    
+    # اجرای اپ Flask
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
