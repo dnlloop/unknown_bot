@@ -1,6 +1,6 @@
 pillow
 requests
-Flask==2.2.3
+Flask
 python-telegram-bot==20.0
 Pillow==9.4.0
 python-dotenv==1.0.0
