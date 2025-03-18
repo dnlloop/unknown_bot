@@ -1,12 +1,10 @@
 import os
 import logging
+import requests
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from dotenv import load_dotenv
-import telegram
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
@@ -14,69 +12,77 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")  # توکن ربات تلگرام
 ADMIN_ID = int(os.getenv("ADMIN_ID", "562770229"))  # آیدی ادمین
 CHANNEL_ID = os.getenv("CHANNEL_ID")  # مثلا: @yourchannel
-CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "false"  # آیا قفل کانال فعال است؟
+CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "true"  # آیا قفل کانال فعال است؟
 
 # تنظیمات لاگ
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-bot = telegram.Bot(token=TOKEN)
 
-def check_channel_membership(update: Update, context: CallbackContext):
-    """ بررسی می‌کنه که کاربر عضو کانال هست یا نه """
-    user_id = update.message.from_user.id
-    try:
-        user_status = context.bot.get_chat_member(CHANNEL_ID, user_id).status
-        if user_status not in ["member", "administrator", "creator"]:
-            update.message.reply_text("برای ارسال پیام ناشناس باید عضو کانال شوید.")
-            return False
-    except Exception as e:
-        logger.error(f"Error checking channel membership: {e}")
-        update.message.reply_text("خطایی رخ داد. لطفاً بعداً امتحان کنید.")
-        return False
-    return True
+# توکن ربات و URL API تلگرام
+BASE_URL = f"https://api.telegram.org/bot{TOKEN}/"
 
-def handle_anonymous_message(update: Update, context: CallbackContext):
-    """ دریافت پیام ناشناس از کاربران و ارسال به ادمین """
-    if CHANNEL_LOCK and not check_channel_membership(update, context):
-        return
+def send_message(chat_id, text, reply_markup=None):
+    """ ارسال پیام به تلگرام """
+    url = BASE_URL + "sendMessage"
+    params = {"chat_id": chat_id, "text": text, "reply_markup": reply_markup}
+    response = requests.post(url, params=params)
+    return response
+
+def send_photo(chat_id, photo, caption=None):
+    """ ارسال عکس به تلگرام """
+    url = BASE_URL + "sendPhoto"
+    files = {"photo": photo}
+    params = {"chat_id": chat_id, "caption": caption}
+    response = requests.post(url, files=files, params=params)
+    return response
+
+def check_channel_membership(user_id):
+    """ بررسی عضویت کاربر در کانال """
+    url = BASE_URL + "getChatMember"
+    params = {"chat_id": CHANNEL_ID, "user_id": user_id}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        user_status = response.json()['result']['status']
+        return user_status in ["member", "administrator", "creator"]
+    return False
+
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    """ دریافت درخواست از تلگرام به عنوان webhook """
+    json_str = request.get_data().decode("UTF-8")
+    update = request.json
+    message = update.get("message")
     
-    user_message = update.message.text
-    user_id = update.message.from_user.id
-    user_name = update.message.from_user.username if update.message.from_user.username else "کاربر ناشناس"
+    if message:
+        user_message = message.get("text")
+        user_id = message.get("from").get("id")
+        user_name = message.get("from").get("username", "کاربر ناشناس")
+        
+        # بررسی عضویت در کانال
+        if CHANNEL_LOCK and not check_channel_membership(user_id):
+            send_message(user_id, "برای ارسال پیام ناشناس باید عضو کانال شوید.")
+            return "OK", 200
 
-    # ساخت دکمه‌های شیشه‌ای برای ادمین
-    keyboard = [
-        [InlineKeyboardButton("📢 ارسال به کانال", callback_data=f"send_to_channel_{user_message}")],
-        [InlineKeyboardButton("🖼️ تبدیل به تصویر", callback_data=f"create_image_{user_message}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        # ساخت دکمه‌های شیشه‌ای برای ادمین
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "📢 ارسال به کانال", "callback_data": f"send_to_channel_{user_message}"}],
+                [{"text": "🖼️ تبدیل به تصویر", "callback_data": f"create_image_{user_message}"}]
+            ]
+        }
 
-    # ارسال پیام به ادمین
-    context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"📩 پیام ناشناس دریافت شد:\n\n{user_message}\n\n👤 فرستنده: @{user_name} (ID: {user_id})",
-        reply_markup=reply_markup,
-        parse_mode="HTML"  # استفاده از رشته به جای ParseMode
-    )
+        # ارسال پیام به ادمین
+        send_message(
+            ADMIN_ID,
+            f"📩 پیام ناشناس دریافت شد:\n\n{user_message}\n\n👤 فرستنده: @{user_name} (ID: {user_id})",
+            reply_markup=keyboard
+        )
+        
+        send_message(user_id, "✅ پیام شما ارسال شد!")
 
-    update.message.reply_text("✅ پیام ناشناس شما ارسال شد!")
-
-def send_to_channel_callback(update: Update, context: CallbackContext):
-    """ ارسال پیام ناشناس به کانال توسط ادمین """
-    query = update.callback_query
-    message_text = query.data.split("_", 1)[1]
-
-    if update.effective_user.id == ADMIN_ID:
-        try:
-            context.bot.send_message(CHANNEL_ID, f"📩 پیام ناشناس:\n\n{message_text}")
-            query.answer("✅ پیام به کانال ارسال شد!")
-        except Exception as e:
-            logger.error(f"Error sending to channel: {e}")
-            query.answer("❌ خطا در ارسال به کانال!")
-    else:
-        query.answer("❌ شما اجازه این کار را ندارید!")
+    return "OK", 200
 
 def create_anonymous_image(message: str):
     """ تبدیل پیام ناشناس به تصویر """
@@ -96,29 +102,6 @@ def create_anonymous_image(message: str):
 
     return byte_io
 
-def create_image_callback(update: Update, context: CallbackContext):
-    """ ادمین با زدن این دکمه، متن ناشناس را به تصویر تبدیل می‌کند """
-    query = update.callback_query
-    message_text = query.data.split("_", 1)[1]
-
-    if update.effective_user.id == ADMIN_ID:
-        image_bytes = create_anonymous_image(message_text)
-        query.answer("✅ تصویر ساخته شد!")
-
-        # ارسال تصویر به ادمین
-        context.bot.send_photo(ADMIN_ID, photo=image_bytes, caption="🖼️ تصویر ناشناس ساخته شد!")
-    else:
-        query.answer("❌ شما اجازه این کار را ندارید!")
-
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    """ دریافت درخواست از تلگرام به عنوان webhook """
-    json_str = request.get_data().decode("UTF-8")
-    update = Update.de_json(json_str, bot)
-    dispatcher = Updater(TOKEN, use_context=True).dispatcher
-    dispatcher.process_update(update)
-    return "OK", 200
-
 @app.route("/")
 def index():
     return "Bot is running!"
@@ -126,7 +109,9 @@ def index():
 def set_webhook():
     """ تنظیم webhook برای ربات """
     webhook_url = f"https://unknown-bot-sllr.onrender.com/{TOKEN}"
-    bot.setWebhook(webhook_url)
+    url = BASE_URL + "setWebhook"
+    params = {"url": webhook_url}
+    requests.post(url, params=params)
 
 if __name__ == "__main__":
     # تنظیم webhook
