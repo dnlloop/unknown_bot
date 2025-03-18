@@ -11,9 +11,9 @@ import threading
 # بارگذاری متغیرهای محیطی
 load_dotenv()
 
-TOKEN = os.getenv("7715250325:AAGTc78e_IT51cyv-wbaFtDGXQwAd0HlEOI")
-ADMIN_ID = int(os.getenv("562770229"))  # آیدی ادمین
-CHANNEL_ID = os.getenv("@psychoxz")  # مثلا: @yourchannel
+TOKEN = os.getenv("TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "562770229")) آیدی ادمین
+CHANNEL_ID = os.getenv("CHANNEL_ID")  # مثلا: @yourchannel
 CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "true"  # آیا قفل کانال فعال است؟
 
 # تنظیمات لاگ
