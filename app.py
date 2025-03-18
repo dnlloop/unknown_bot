@@ -12,7 +12,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")  # توکن ربات تلگرام
 ADMIN_ID = int(os.getenv("ADMIN_ID", "562770229"))  # آیدی ادمین
 CHANNEL_ID = os.getenv("CHANNEL_ID")  # مثلا: @yourchannel
-CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "true"  # آیا قفل کانال فعال است؟
+CHANNEL_LOCK = os.getenv("CHANNEL_LOCK") == "false"  # آیا قفل کانال فعال است؟
 
 # تنظیمات لاگ
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
