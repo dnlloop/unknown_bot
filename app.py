@@ -108,7 +108,7 @@ def index():
 
 def set_webhook():
     """ تنظیم webhook برای ربات """
-    webhook_url = f"https://unknown-bot-sllr.onrender.com/{TOKEN}"
+    webhook_url = f"https://unknown-bot-3ms9.onrender.com/{TOKEN}"
     url = BASE_URL + "setWebhook"
     params = {"url": webhook_url}
     requests.post(url, params=params)
