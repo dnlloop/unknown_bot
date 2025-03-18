@@ -122,16 +122,5 @@ def main():
     updater.start_polling()
     updater.idle()
 
-Token="7715250325:AAGTc78e_IT51cyv-wbaFtDGXQwAd0HlEOI"
-
-def keep_alive():
-    url = f"https://api.telegram.org/bot{Token}/getMe"
-    while True:
-        requests.get(url)
-        print("Keep Alive Request Sent!")
-        threading.Timer(600, keep_alive).start()  # هر 10 دقیقه اجرا میشه
-
-keep_alive()
-
 if __name__ == "__main__":
     main()
