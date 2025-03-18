@@ -1,7 +1,7 @@
 import os
 import logging
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -58,7 +58,7 @@ def handle_anonymous_message(update: Update, context: CallbackContext):
         chat_id=ADMIN_ID,
         text=f"📩 پیام ناشناس دریافت شد:\n\n{user_message}\n\n👤 فرستنده: @{user_name} (ID: {user_id})",
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
+        parse_mode="HTML"  # استفاده از رشته به جای ParseMode
     )
 
     update.message.reply_text("✅ پیام ناشناس شما ارسال شد!")
