@@ -1,6 +1,6 @@
 pillow
 requests
 Flask
-python-telegram-bot==20.0
-Pillow==9.4.0
-python-dotenv==1.0.0
+python-telegram-bot
+Pillow
+python-dotenv
